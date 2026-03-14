@@ -1,0 +1,14 @@
+.git
+.github
+vendor
+node_modules
+.env
+.env.*
+storage/logs
+docker
+*.log
+*.md
+.gitignore
+.editorconfig
+task.todo
+tests
