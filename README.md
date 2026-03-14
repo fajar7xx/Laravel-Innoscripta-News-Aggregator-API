@@ -110,6 +110,25 @@ Base path:
 /api/v1
 ```
 
+### Health Check
+
+```
+GET /api/health
+```
+
+Response:
+
+```json
+{
+    "status": "OK",
+    "service": "news-aggregator-backend-api",
+    "version": "1.0.0",
+    "timestamp": "2026-03-15T00:00:00+00:00"
+}
+```
+
+---
+
 ### Get Articles
 
 Retrieve paginated articles.
@@ -161,11 +180,25 @@ GET /api/v1/categories
 
 | Component        | Technology             |
 | ---------------- | ---------------------- |
-| Backend          | Laravel                |
-| Database         | MySQL / MariaDB        |
+| Backend          | Laravel 12             |
+| Database         | MariaDB 11             |
+| Cache / Queue    | Redis                  |
+| Web Server       | Nginx                  |
 | Containerization | Docker                 |
 | HTTP Client      | Laravel HTTP Client    |
 | Scheduler        | Laravel Task Scheduler |
+
+---
+
+# Docker Services
+
+| Service  | Description                        | Port (host) |
+| -------- | ---------------------------------- | ----------- |
+| app      | PHP 8.4-FPM (Laravel application)  | —           |
+| nginx    | Web server (reverse proxy to app)  | 8080        |
+| mariadb  | Database                           | 3307        |
+| redis    | Cache & queue driver               | 6380        |
+| queue    | Horizon worker                     | —           |
 
 ---
 
@@ -173,52 +206,95 @@ GET /api/v1/categories
 
 ### 1. Clone Repository
 
-```
+```bash
 git clone <repository-url>
 cd news-aggregator-backend
 ```
 
 ---
 
-### 2. Start Docker Environment
+### 2. Configure Environment
 
-```
-docker compose up -d
-```
-
----
-
-### 3. Install Dependencies
-
-```
-docker compose exec app composer install
-```
-
----
-
-### 4. Configure Environment
-
-```
+```bash
 cp .env.example .env
-php artisan key:generate
+```
+
+Update the following values in `.env` before starting Docker:
+
+```env
+DB_DATABASE=innoscripta_news_aggregator
+DB_USERNAME=your_db_user
+DB_PASSWORD=your_db_password
+```
+
+---
+
+### 3. Build and Start Docker Environment
+
+```bash
+docker compose up -d --build
+```
+
+> Subsequent starts (no Dockerfile changes): `docker compose up -d`
+
+---
+
+### 4. Generate Application Key
+
+```bash
+docker compose exec app php artisan key:generate
 ```
 
 ---
 
 ### 5. Run Migrations
 
+```bash
+docker compose exec app php artisan migrate
 ```
-php artisan migrate
+
+---
+
+### 6. Access the Application
+
+```
+http://localhost:8080
+```
+
+---
+
+# Docker Commands
+
+```bash
+# View running containers
+docker compose ps
+
+# Follow application logs
+docker compose logs -f app
+
+# Open shell inside app container
+docker compose exec app bash
+
+# Run Artisan commands
+docker compose exec app php artisan <command>
+
+# Stop all containers
+docker compose down
+
+# Stop and remove volumes (resets database)
+docker compose down -v
 ```
 
 ---
 
 # Running the Scheduler
 
-To enable automated article ingestion:
+The scheduler runs automatically inside the `queue` container via Horizon.
 
-```
-php artisan schedule:work
+To run manually:
+
+```bash
+docker compose exec app php artisan schedule:work
 ```
 
 ---
