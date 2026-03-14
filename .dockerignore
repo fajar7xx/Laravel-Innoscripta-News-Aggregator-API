@@ -6,6 +6,7 @@ node_modules
 .env.*
 storage/logs
 docker
+!docker/php/entrypoint.sh
 *.log
 *.md
 .gitignore
