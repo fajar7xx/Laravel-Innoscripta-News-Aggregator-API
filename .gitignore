@@ -22,3 +22,15 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# ai agents (local only, do not commit)
+AGENTS.md
+CLAUDE.md
+boost.json
+opencode.json
+.agents/
+.amp/
+.claude/
+.codex/
+.mcp.json
+ai-docs/
