@@ -2,7 +2,7 @@
 
 test('returns a successful health check response', function () {
     $this->getJson('/api/health')
-        ->assertSuccessful()
+        ->assertOk()
         ->assertJson([
             'status' => 'OK',
             'service' => 'news-aggregator-backend-api',
