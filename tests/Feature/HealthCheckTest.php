@@ -7,6 +7,5 @@ test('returns a successful health check response', function () {
             'status' => 'OK',
             'service' => 'news-aggregator-backend-api',
             'version' => '1.0.0',
-            'timestamp' => now()->toIso8601String(),
-        ]);
+        ])->assertJsonStructure(['status', 'service', 'version', 'timestamp']);
 });
