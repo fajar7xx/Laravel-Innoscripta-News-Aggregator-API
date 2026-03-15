@@ -239,7 +239,17 @@ docker compose up -d --build
 
 ---
 
-### 4. Generate Application Key
+### 4. Install PHP Dependencies
+
+```bash
+docker compose exec app composer install
+```
+
+> The volume mount at runtime replaces the image's `/var/www` with your local directory. Running `composer install` inside the container ensures `vendor/` is populated.
+
+---
+
+### 5. Generate Application Key
 
 ```bash
 docker compose exec app php artisan key:generate
@@ -247,7 +257,7 @@ docker compose exec app php artisan key:generate
 
 ---
 
-### 5. Run Migrations
+### 6. Run Migrations
 
 ```bash
 docker compose exec app php artisan migrate
@@ -255,7 +265,7 @@ docker compose exec app php artisan migrate
 
 ---
 
-### 6. Access the Application
+### 7. Access the Application
 
 ```
 http://localhost:8080
@@ -289,9 +299,7 @@ docker compose down -v
 
 # Running the Scheduler
 
-The scheduler runs automatically inside the `queue` container via Horizon.
-
-To run manually:
+The `queue` container runs **Horizon**, which processes queued jobs from Redis. The Laravel scheduler (for periodic tasks like article ingestion) is a separate process and must be started manually:
 
 ```bash
 docker compose exec app php artisan schedule:work
