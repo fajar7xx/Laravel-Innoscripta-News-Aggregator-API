@@ -1,0 +1,15 @@
+.git
+.github
+vendor
+node_modules
+.env
+.env.*
+storage/logs
+docker
+!docker/php/entrypoint.sh
+*.log
+*.md
+.gitignore
+.editorconfig
+task.todo
+tests
