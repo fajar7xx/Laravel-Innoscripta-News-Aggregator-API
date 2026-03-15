@@ -23,6 +23,8 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
+task.todo
+
 # ai agents (local only, do not commit)
 AGENTS.md
 CLAUDE.md
