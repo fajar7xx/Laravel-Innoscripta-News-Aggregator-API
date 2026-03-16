@@ -31,22 +31,14 @@ Core capabilities:
 
 Before implementing the system, several design documents were created to define the architecture, data model, API contract, and aggregation workflow.
 
-These documents can be found in the `docs/` directory:
+These documents can be found in the `docs/v1/` directory:
 
-| Document                 | Description                              |
-| ------------------------ | ---------------------------------------- |
-| docs/architecture.md     | System architecture and component design |
-| docs/erd.md              | Database schema and entity relationships |
-| docs/api-spec.md         | REST API specification                   |
-| docs/aggregation-flow.md | Data ingestion and aggregation pipeline  |
-
-Task breakdown used during development is available in:
-
-```
-docs/tasks/
-```
-
-Each task document corresponds to a development issue used to implement the system incrementally.
+| Document                    | Description                              |
+| --------------------------- | ---------------------------------------- |
+| docs/v1/architecture.md     | System architecture and component design |
+| docs/v1/erd.md              | Database schema and entity relationships |
+| docs/v1/api-spec.md         | REST API specification                   |
+| docs/v1/aggregation-flow.md | Data ingestion and aggregation pipeline  |
 
 ---
 
@@ -176,17 +168,27 @@ GET /api/v1/categories
 
 ---
 
+# Authentication
+
+Authentication is handled via **Laravel Sanctum** token-based auth. No sessions are used for API consumers.
+
+---
+
 # Technology Stack
 
 | Component        | Technology             |
 | ---------------- | ---------------------- |
 | Backend          | Laravel 12             |
+| Language         | PHP 8.4                |
 | Database         | MariaDB 11             |
 | Cache / Queue    | Redis                  |
 | Web Server       | Nginx                  |
 | Containerization | Docker                 |
 | HTTP Client      | Laravel HTTP Client    |
 | Scheduler        | Laravel Task Scheduler |
+| Queue Dashboard  | Laravel Horizon        |
+| Auth             | Laravel Sanctum        |
+| Testing          | Pest 4                 |
 
 ---
 
@@ -219,12 +221,16 @@ cd news-aggregator-backend
 cp .env.example .env
 ```
 
-Update the following values in `.env` before starting Docker:
+Update the following values in `.env`:
 
 ```env
 DB_DATABASE=innoscripta_news_aggregator
 DB_USERNAME=your_db_user
 DB_PASSWORD=your_db_password
+
+NEWS_API_KEY=your_newsapi_key
+GUARDIAN_API_KEY=your_guardian_key
+NY_TIMES_API_KEY=your_nytimes_key
 ```
 
 ---
@@ -239,36 +245,47 @@ docker compose up -d --build
 
 ---
 
-### 4. Install PHP Dependencies
+### 4. Install Dependencies and Run Migrations
 
 ```bash
-docker compose exec app composer install
+docker compose exec app composer setup
 ```
 
-> The volume mount at runtime replaces the image's `/var/www` with your local directory. Running `composer install` inside the container ensures `vendor/` is populated.
+This runs `composer install`, generates the application key, runs migrations, installs npm dependencies, and builds frontend assets.
 
 ---
 
-### 5. Generate Application Key
-
-```bash
-docker compose exec app php artisan key:generate
-```
-
----
-
-### 6. Run Migrations
-
-```bash
-docker compose exec app php artisan migrate
-```
-
----
-
-### 7. Access the Application
+### 5. Access the Application
 
 ```
 http://localhost:8080
+```
+
+---
+
+# Local Development (Without Docker)
+
+If running outside Docker, use the following commands:
+
+```bash
+# First-time setup
+composer setup
+
+# Start dev server (serves + queue listener + log watcher + Vite)
+composer dev
+
+# Run all tests
+composer test
+
+# Run tests with filter
+php artisan test --compact --filter=TestName
+
+# Code formatting
+vendor/bin/pint --dirty
+
+# Run migrations
+php artisan migrate
+php artisan migrate:fresh --seed
 ```
 
 ---
@@ -303,6 +320,16 @@ The `queue` container runs **Horizon**, which processes queued jobs from Redis. 
 
 ```bash
 docker compose exec app php artisan schedule:work
+```
+
+---
+
+# Horizon Dashboard
+
+Horizon provides a dashboard for monitoring queue workers and jobs:
+
+```
+http://localhost:8080/horizon
 ```
 
 ---
