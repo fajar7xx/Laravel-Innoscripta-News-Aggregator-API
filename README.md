@@ -230,7 +230,7 @@ DB_PASSWORD=your_db_password
 
 NEWS_API_KEY=your_newsapi_key
 GUARDIAN_API_KEY=your_guardian_key
-NY_TIMES_API_KEY=your_nytimes_key
+NYTIMES_API_KEY=your_nytimes_key
 ```
 
 ---
@@ -248,7 +248,7 @@ docker compose up -d --build
 ### 4. Install Dependencies and Run Migrations
 
 ```bash
-docker compose exec app composer setup
+docker compose exec app composer install
 ```
 
 This runs `composer install`, generates the application key, runs migrations, installs npm dependencies, and builds frontend assets.
