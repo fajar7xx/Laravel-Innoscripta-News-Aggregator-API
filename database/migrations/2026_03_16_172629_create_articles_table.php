@@ -34,17 +34,19 @@ return new class extends Migration
             $table->index('source_id', 'idx_source_id');
         });
 
-        // FULLTEXT index for search functionality (MariaDB/MySQL)
-        // Enables: Article::whereFullText(['title', 'description', 'content'], $keyword)
-        DB::statement('CREATE FULLTEXT INDEX ft_search ON articles(title, description, content)');
+        if (DB::getDriverName() === 'mysql') {
+            // FULLTEXT index for search functionality (MariaDB/MySQL only)
+            // Enables: Article::whereFullText(['title', 'description', 'content'], $keyword)
+            DB::statement('CREATE FULLTEXT INDEX ft_search ON articles(title, description, content)');
 
-        // Composite indexes with DESC order for published_at (raw SQL required)
-        // Optimized for: ORDER BY published_at DESC (newest first)
-        DB::statement('CREATE INDEX idx_published_at ON articles(published_at DESC)');
+            // Composite indexes with DESC order for published_at (raw SQL required)
+            // Optimized for: ORDER BY published_at DESC (newest first)
+            DB::statement('CREATE INDEX idx_published_at ON articles(published_at DESC)');
 
-        // Composite index for common query pattern: filter by source + sort by date
-        // Optimized for: WHERE source_id = X ORDER BY published_at DESC
-        DB::statement('CREATE INDEX idx_source_published ON articles(source_id, published_at DESC)');
+            // Composite index for common query pattern: filter by source + sort by date
+            // Optimized for: WHERE source_id = X ORDER BY published_at DESC
+            DB::statement('CREATE INDEX idx_source_published ON articles(source_id, published_at DESC)');
+        }
     }
 
     /**
