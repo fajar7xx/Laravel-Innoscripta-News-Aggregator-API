@@ -1,0 +1,40 @@
+Project "Innoscripta News Aggregator" {
+    database_type: 'MariaDB'
+    note: '''
+    This ERD help us to create migrations
+    '''
+}
+
+Table sources {
+    id integer [PK]
+    name string
+    slug string [unique]
+    is_active bool
+    last_fetched_at datetime
+
+}
+
+Table articles {
+    id integer [PK]
+    source_id integer
+    external_id integer
+    title string
+    description text
+    content longtext
+    author string
+    url string [unique]
+    image_url string
+    published_at datetime
+    fetched_at datetime
+}
+
+Table categories {
+    id integer [PK]
+    name string
+    slug string [unique]
+}
+
+Table article_category {
+    article_id integer
+    category_id integer
+}
