@@ -23,11 +23,11 @@ shell: ## Open a bash shell inside the app container
 	docker compose exec $(APP_CONTAINER) bash
 
 ## —— Laravel ————————————————————————————————————————
-artisan: ## Run an Artisan command: make artisan [cmd]
-	docker compose exec $(APP_CONTAINER) php artisan $(filter-out $@,$(MAKECMDGOALS))
+artisan: ## Run an Artisan command: make artisan ARGS="migrate:fresh --seed"
+	docker compose exec $(APP_CONTAINER) php artisan $(ARGS)
 
-composer: ## Run a Composer command: make composer [cmd]
-	docker compose exec $(APP_CONTAINER) composer $(filter-out $@,$(MAKECMDGOALS))
+composer: ## Run a Composer command: make composer ARGS="require package/name"
+	docker compose exec $(APP_CONTAINER) composer $(ARGS)
 
 ## —— Common shortcuts ————————————————————————————————
 migrate: ## Run database migrations
