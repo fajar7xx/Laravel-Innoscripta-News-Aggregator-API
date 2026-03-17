@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ListArticlesRequest;
 use App\Http\Requests\StoreArticleRequest;
 use App\Http\Requests\UpdateArticleRequest;
 use App\Http\Resources\ArticleResource;
@@ -11,16 +12,15 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ArticleController extends Controller
 {
-    /**
-     * Summary of index
-     *
-     * @return AnonymousResourceCollection
-     */
-    public function index()
+    public function index(ListArticlesRequest $request): AnonymousResourceCollection
     {
-        $articles = Article::with(['source', 'categories'])->paginate();
+        $query = Article::with(['source', 'categories']);
 
-        return ArticleResource::collection($articles);
+        if ($q = $request->string('q')->trim()->value()) {
+            $query->whereFullText(['title', 'description', 'content'], $q);
+        }
+
+        return ArticleResource::collection($query->paginate());
     }
 
     /**

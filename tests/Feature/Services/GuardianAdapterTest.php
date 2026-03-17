@@ -176,7 +176,7 @@ test('fetch returns empty array when results key is absent', function () {
 test('fetch returns empty array and logs error on http error', function () {
     Http::fake(['*' => Http::response(['message' => 'Too Many Requests'], 429)]);
 
-    Log::shouldReceive('info')->once();
+    Log::shouldReceive('info')->times(2);
     Log::shouldReceive('error')->once()->with('The Guardian HTTP error', Mockery::type('array'));
 
     $adapter = new GuardianAdapter;
