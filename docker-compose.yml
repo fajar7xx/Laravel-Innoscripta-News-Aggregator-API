@@ -11,6 +11,7 @@ services:
       - ./docker/php/php.ini:/usr/local/etc/php/conf.d/local.ini
     environment:
       DB_HOST: mariadb
+      DB_PORT: 3306
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ""
@@ -86,6 +87,7 @@ services:
     command: php artisan horizon
     environment:
       DB_HOST: mariadb
+      DB_PORT: 3306
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ""
