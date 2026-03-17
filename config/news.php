@@ -49,7 +49,7 @@ return [
             'enabled' => env('NEWS_SOURCE_NYTIMES_ENABLED', true),
             'timeout' => 30,
             'endpoints' => [
-                'archive' => '/archive/v1',
+                'archive' => '/svc/archive/v1',
             ],
         ],
     ],
