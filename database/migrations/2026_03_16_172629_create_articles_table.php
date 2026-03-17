@@ -34,7 +34,7 @@ return new class extends Migration
             $table->index('source_id', 'idx_source_id');
         });
 
-        if (DB::getDriverName() === 'mysql') {
+        if (DB::getDriverName() === 'mysql' || DB::getDriverName() === 'mariadb') {
             // FULLTEXT index for search functionality (MariaDB/MySQL only)
             // Enables: Article::whereFullText(['title', 'description', 'content'], $keyword)
             DB::statement('CREATE FULLTEXT INDEX ft_search ON articles(title, description, content)');

@@ -20,6 +20,8 @@ class ArticleController extends Controller
             $query->whereFullText(['title', 'description', 'content'], $q);
         }
 
+        $query->orderBy('created_at', 'DESC');
+
         return ArticleResource::collection($query->paginate());
     }
 
