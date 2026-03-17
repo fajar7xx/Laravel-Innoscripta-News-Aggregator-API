@@ -6,35 +6,57 @@ Project "Innoscripta News Aggregator" {
 }
 
 Table sources {
-    id integer [PK]
-    name string
-    slug string [unique]
-    is_active bool
-    last_fetched_at datetime
+    id bigint [PK, increment]
+    name varchar(255)
+    slug string(255) [unique]
+    is_active bool [default: true]
+    last_fetched_at timestamp [null]
 
+    indexes {
+        slug [unique, name: 'source_slug_unique']
+        is_active [name: 'idx_is_active']
+    }
 }
 
 Table articles {
-    id integer [PK]
-    source_id integer
-    external_id integer
-    title string
+    id bigint [PK, increment]
+    source_id bigint [ref : > sources.id]
+    external_id varchar(255)
+    title varchar(500)
     description text
     content longtext
-    author string
-    url string [unique]
-    image_url string
+    author varchar
+    url varchar(500) [unique]
+    image_url varchar
     published_at datetime
     fetched_at datetime
+
+    indexes {
+        (source_id, external_id) [unique, name: 'unique_source_article']
+        url [unique, name: 'articles_url_unique']
+        source_id [name: 'idx_source_id']
+        published_at [name: 'idx_published_at']
+        (source_id, published_at) [name: 'idx_source_published']
+        (title, description, content) [type: fulltext, name:'ft_search']
+    }
 }
 
 Table categories {
-    id integer [PK]
-    name string
-    slug string [unique]
+    id bigint [PK, increment]
+    name varchar
+    slug varchar [unique]
+
+    indexes {
+        slug [unique, name: 'categories_slug_unique']
+    }
 }
 
 Table article_category {
-    article_id integer
-    category_id integer
+    article_id bigint [not null, ref: > articles.id]
+    category_id bigint [not null, ref: > categories.id]
+
+    indexes {
+        (article_id, category_id) [unique, name:'unique_article_category']
+        category_id [name: 'idx_category_id']
+    }
 }
