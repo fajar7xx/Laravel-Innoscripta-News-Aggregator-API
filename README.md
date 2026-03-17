@@ -1,425 +1,598 @@
-# News Aggregator Backend
+# News Aggregator Backend API
 
-A backend service that aggregates news articles from multiple external APIs and exposes them through a RESTful API.
+Laravel 12 REST API for aggregating articles from multiple external providers into a single searchable dataset.
 
-The system periodically fetches articles from multiple news providers, stores them locally, and allows frontend applications to search and filter the aggregated content.
+Currently integrated sources:
 
----
+- NewsAPI
+- The Guardian
+- New York Times
 
-# Overview
+The application fetches raw articles through source-specific adapters, normalizes them into a shared schema, stores them in MariaDB, and exposes public read-only endpoints for articles, sources, and categories.
 
-This service collects news articles from multiple external sources:
+## What This Project Does
 
-* NewsAPI
-* The Guardian
-* New York Times
+- Aggregates articles from multiple providers through dedicated adapters
+- Normalizes heterogeneous payloads into one internal article model
+- Deduplicates articles with unique constraints on `url` and `(source_id, external_id)`
+- Stores article-to-category relationships in a pivot table
+- Exposes paginated article listing and detail endpoints
+- Supports search, filtering, and sorting on article queries
+- Dispatches per-source fetch jobs to Redis queues
+- Runs scheduled aggregation through Laravel scheduler
+- Monitors queue activity with Laravel Horizon
 
-Articles are normalized into a consistent internal format and stored in a relational database. The API layer allows clients to retrieve and filter articles efficiently.
+## Stack
 
-Core capabilities:
+| Component | Technology |
+| --- | --- |
+| Backend | Laravel 12 |
+| Language | PHP 8.4 |
+| Database | MariaDB 11 |
+| Queue / Cache | Redis |
+| Queue Dashboard | Laravel Horizon |
+| HTTP Client | Laravel HTTP Client |
+| Testing | Pest 4 |
+| Local Container Setup | Docker Compose |
+| Frontend Asset Tooling | Vite + Tailwind CSS v4 |
 
-* Aggregate news from multiple external APIs
-* Normalize heterogeneous API responses
-* Prevent duplicate article storage
-* Provide RESTful endpoints for querying articles
-* Support flexible filtering and search
-* Scheduled article ingestion
+## Project Structure
 
----
-
-# Documentation
-
-Before implementing the system, several design documents were created to define the architecture, data model, API contract, and aggregation workflow.
-
-These documents can be found in the `docs/v1/` directory:
-
-| Document                    | Description                              |
-| --------------------------- | ---------------------------------------- |
-| docs/v1/architecture.md     | System architecture and component design |
-| docs/v1/erd.md              | Database schema and entity relationships |
-| docs/v1/api-spec.md         | REST API specification                   |
-| docs/v1/aggregation-flow.md | Data ingestion and aggregation pipeline  |
-
----
-
-# Architecture
-
-High-level system flow:
-```
-External APIs
-→ Source Adapters
-→ Aggregation Service
-→ Normalization & Deduplication
-→ Database
-→ REST API
-```
-
-Key components:
-
-**Source Adapters**
-
-Each news provider has a dedicated adapter responsible for fetching and mapping API responses.
-
-Adapters implemented:
-
-* `NewsApiAdapter` — fetches from NewsAPI `/everything` endpoint
-* `GuardianAdapter` — fetches from The Guardian `/search` endpoint
-* `NYTimesAdapter` — fetches from NYTimes Archive API
-
----
-
-**Aggregation Service**
-
-The aggregation service orchestrates the process of collecting and storing articles.
-
-Responsibilities:
-
-* Receive normalized article data from adapters
-* Deduplicate articles via `updateOrCreate` on `(source_id, external_id)`
-* Persist articles and sync categories to the database
-
----
-
-**Background Jobs**
-
-Each source runs as an independent `FetchArticlesJob` on the queue. Jobs are isolated per source so a failing source does not block others.
-
-Job configuration:
-
-* Retries: 3 attempts
-* Backoff: 30s → 2min → 10min
-* Timeout: 120 seconds
-* Failed jobs logged to `failed_jobs` table
-
----
-
-**Scheduler**
-
-The system uses Laravel's scheduler to automatically ingest articles daily at midnight (server time).
-
-Workflow:
-
-```
-Scheduler (daily 00:00)
-→ AggregateNewsCommand
-→ FetchArticlesJob (one per active source, queued)
-→ NewsAggregationService::saveArticle()
-→ Database update
+```text
+app/
+├── Console/Commands/AggregateNewsCommand.php
+├── Contracts/NewsSourceInterface.php
+├── Http/Controllers/API/V1/
+├── Http/Requests/
+├── Http/Resources/
+├── Jobs/FetchArticlesJob.php
+├── Models/
+├── Providers/HorizonServiceProvider.php
+└── Services/
+    ├── NewsAggregationService.php
+    └── Adapters/
+        ├── GuardianAdapter.php
+        ├── NYTimesAdapter.php
+        └── NewsApiAdapter.php
+database/
+├── factories/
+├── migrations/
+└── seeders/
+docs/
+├── v1/
+└── v2/
+routes/
+├── api.php
+└── console.php
 ```
 
----
-
-# API Endpoints
+## API Overview
 
 Base path:
 
-```
+```text
 /api/v1
 ```
 
-### Health Check
+Public endpoints:
 
-```
-GET /api/health
+- `GET /api/health`
+- `GET /api/v1/articles`
+- `GET /api/v1/articles/{article}`
+- `GET /api/v1/sources`
+- `GET /api/v1/sources/{source}`
+- `GET /api/v1/categories`
+- `GET /api/v1/categories/{category}`
+
+API documentation endpoints:
+
+- `GET /api/documentation` for Swagger UI
+- `GET /docs` for the generated OpenAPI document
+- Postman collection file: `Innoscripta News Aggregator.postman_collection.json`
+
+Swagger UI route:
+
+```text
+http://localhost:8080/api/documentation
 ```
 
-Response:
+Laravel also exposes the framework health endpoint at:
+
+```text
+GET /up
+```
+
+### Health Response
 
 ```json
 {
     "status": "OK",
     "service": "news-aggregator-backend-api",
     "version": "1.0.0",
-    "timestamp": "2026-03-15T00:00:00+00:00"
+    "timestamp": "2026-03-17T00:00:00+00:00"
 }
 ```
 
----
+### Article Query Parameters
 
-### Articles
+`GET /api/v1/articles`
 
-#### List Articles
+| Parameter | Description |
+| --- | --- |
+| `q` | Full-text search on `title`, `description`, and `content` |
+| `source` | Filter by source slug |
+| `category` | Filter by category slug |
+| `author` | Filter by exact author value |
+| `from` | Filter `published_at >= YYYY-MM-DD` |
+| `to` | Filter `published_at <= YYYY-MM-DD` |
+| `sort_by` | One of `published_at`, `title`, `created_at` |
+| `sort_order` | `asc` or `desc` |
+| `page` | Pagination page |
 
-Retrieve paginated articles.
-
-```
-GET /api/v1/articles
-```
-
-Query parameters:
-
-| Parameter | Description               |
-| --------- | ------------------------- |
-| q         | Search keyword            |
-| source    | Filter by source slug     |
-| category  | Filter by category slug   |
-| author    | Filter by author name     |
-| from      | Start date (YYYY-MM-DD)   |
-| to        | End date (YYYY-MM-DD)     |
-| page      | Page number               |
-| per_page  | Results per page          |
-
-#### Get Article Detail
-
-```
-GET /api/v1/articles/{id}
-```
-
----
-
-### Sources
-
-#### List Sources
-
-```
-GET /api/v1/sources
-```
-
-#### Get Source Detail
-
-```
-GET /api/v1/sources/{id}
-```
-
----
-
-### Categories
-
-#### List Categories
-
-```
-GET /api/v1/categories
-```
-
-#### Get Category Detail
-
-```
-GET /api/v1/categories/{id}
-```
-
----
-
-# Authentication
-
-Authentication is handled via **Laravel Sanctum** token-based auth. No sessions are used for API consumers.
-
----
-
-# Technology Stack
-
-| Component        | Technology             |
-| ---------------- | ---------------------- |
-| Backend          | Laravel 12             |
-| Language         | PHP 8.4                |
-| Database         | MariaDB 11             |
-| Cache / Queue    | Redis                  |
-| Web Server       | Nginx                  |
-| Containerization | Docker                 |
-| HTTP Client      | Laravel HTTP Client    |
-| Scheduler        | Laravel Task Scheduler |
-| Queue Dashboard  | Laravel Horizon        |
-| Auth             | Laravel Sanctum        |
-| Testing          | Pest 4                 |
-
----
-
-# Docker Services
-
-| Service  | Description                        | Port (host) |
-| -------- | ---------------------------------- | ----------- |
-| app      | PHP 8.4-FPM (Laravel application)  | —           |
-| nginx    | Web server (reverse proxy to app)  | 8080        |
-| mariadb  | MariaDB 11 database                | 3307        |
-| redis    | Cache & queue driver               | 6380        |
-| queue    | Horizon worker                     | —           |
-
----
-
-# Setup Instructions
-
-### 1. Clone Repository
+Example:
 
 ```bash
-git clone <repository-url>
-cd laravel-innoscripta-news-aggregator-api
+curl "http://localhost:8080/api/v1/articles?q=technology&source=guardian&category=world&sort_by=published_at&sort_order=desc"
 ```
 
----
+### Article Response Shape
 
-### 2. Configure Environment
+```json
+{
+    "data": [
+        {
+            "id": 1,
+            "source_id": 2,
+            "external_id": "guardian-123",
+            "title": "Example article",
+            "description": "Short summary",
+            "content": "Normalized article content",
+            "author": "Reporter Name",
+            "url": "https://example.com/article",
+            "image_url": "https://example.com/image.jpg",
+            "published_at": "2026-03-17T08:00:00.000000Z",
+            "fetched_at": "2026-03-17T08:05:00.000000Z",
+            "source": {
+                "id": 2,
+                "name": "The Guardian",
+                "slug": "guardian",
+                "is_active": true,
+                "last_fetched_at": "2026-03-17T08:05:00.000000Z",
+                "created_at": "2026-03-16T00:00:00.000000Z",
+                "updated_at": "2026-03-17T08:05:00.000000Z"
+            },
+            "categories": [
+                {
+                    "id": 1,
+                    "name": "Technology",
+                    "slug": "technology",
+                    "created_at": "2026-03-16T00:00:00.000000Z",
+                    "updated_at": "2026-03-16T00:00:00.000000Z"
+                }
+            ],
+            "created_at": "2026-03-17T08:05:00.000000Z",
+            "updated_at": "2026-03-17T08:05:00.000000Z"
+        }
+    ],
+    "links": {},
+    "meta": {}
+}
+```
+
+## API Documentation
+
+This project uses `darkaonline/l5-swagger` with OpenAPI 3 attributes.
+
+Open the interactive documentation at:
+
+```text
+http://localhost:8080/api/documentation
+```
+
+If you run the project with a different host or port, adjust the URL accordingly.
+
+The generated spec is served from:
+
+```text
+http://localhost:8080/docs
+```
+
+If you prefer Postman, import the collection file that is already included in this repository:
+
+```text
+Innoscripta News Aggregator.postman_collection.json
+```
+
+After importing it into Postman, adjust the collection variables or request base URL to match your local environment.
+
+Regenerate the documentation after changing endpoint attributes:
+
+```bash
+php artisan l5-swagger:generate
+```
+
+The generated file is stored at:
+
+```text
+storage/api-docs/api-docs.json
+```
+
+## Authentication
+
+The current API endpoints are public and do not apply auth middleware.
+
+`laravel/sanctum` is installed in the project, but token-protected API routes are not implemented yet in the current codebase.
+
+## Architecture
+
+High-level flow:
+
+```text
+External APIs
+-> Source Adapters
+-> FetchArticlesJob
+-> NewsAggregationService
+-> MariaDB
+-> REST API Resources
+```
+
+### Source Adapters
+
+Each provider has its own adapter class implementing `App\Contracts\NewsSourceInterface`.
+
+- `App\Services\Adapters\NewsApiAdapter`
+- `App\Services\Adapters\GuardianAdapter`
+- `App\Services\Adapters\NYTimesAdapter`
+
+Each adapter is responsible for:
+
+- Calling the upstream API
+- Mapping provider-specific fields
+- Returning normalized article arrays for persistence
+
+### Aggregation Service
+
+`App\Services\NewsAggregationService` persists normalized data and syncs categories.
+
+Deduplication is handled through:
+
+- `Article::updateOrCreate()` keyed by `(source_id, external_id)`
+- A unique database constraint on article `url`
+
+### Queue Jobs
+
+`App\Jobs\FetchArticlesJob` runs one job per active source.
+
+Current job configuration:
+
+- `tries = 3`
+- `backoff = [30, 120, 600]`
+- `timeout = 120`
+
+If one source fails, the other sources are unaffected because jobs are dispatched independently.
+
+### Scheduler
+
+The scheduler is defined in `routes/console.php` and currently dispatches:
+
+```bash
+php artisan news:aggregate
+```
+
+Schedule:
+
+- Daily at `00:00`
+
+### Search and Filtering
+
+Article search uses `whereFullText()` on:
+
+- `title`
+- `description`
+- `content`
+
+The articles migration also creates database indexes for:
+
+- full-text search
+- sort by `published_at`
+- filter by `source_id` and sort by `published_at`
+
+## Database Notes
+
+Core tables:
+
+- `sources`
+- `categories`
+- `articles`
+- `article_category`
+- `jobs`
+- `failed_jobs`
+- `personal_access_tokens`
+
+Seeded reference data:
+
+- 3 initial sources from `config/news.php`
+- 8 default categories from `CategorySeeder`
+
+Important behaviors:
+
+- `articles`, `sources`, and `categories` use soft deletes
+- article categories are many-to-many
+- source activation is controlled by `sources.is_active`
+
+## Environment Variables
+
+Copy the example file first:
 
 ```bash
 cp .env.example .env
 ```
 
-Update the following values in `.env`:
+Important values:
 
 ```env
-DB_DATABASE=laravel_innoscripta_news_aggregator_api
-DB_USERNAME=your_db_user
-DB_PASSWORD=your_db_password
+APP_URL=http://localhost
 
-NEWS_API_KEY=your_newsapi_key
-GUARDIAN_API_KEY=your_guardian_key
-NYTIMES_API_KEY=your_nytimes_key
+DB_CONNECTION=mariadb
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=laravel_innoscripta_news_aggregator_api
+DB_USERNAME=root
+DB_PASSWORD=
+DB_ROOT_PASSWORD=root_secret
+
+QUEUE_CONNECTION=redis
+CACHE_STORE=redis
+
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+
+NEWS_API_KEY=
+NEWS_API_BASE_URL=
+NEWS_SOURCE_NEWSAPI_ENABLED=true
+
+GUARDIAN_API_KEY=
+GUARDIAN_API_BASE_URL=
+NEWS_SOURCE_GUARDIAN_ENABLED=true
+
+NYTIMES_API_KEY=
+NYTIMES_BASE_URL=
+NEWS_SOURCE_NYTIMES_ENABLED=true
+
+NEWS_AGGREGATION_FREQUENCY=hourly
+NEWS_ARTICLES_PER_FETCH=100
+
+API_DEFAULT_PER_PAGE=20
+API_MAX_PER_PAGE=100
+API_CACHE_TTL=300
+API_CACHE_ENABLED=true
 ```
 
----
+Provider base URLs are intentionally configurable through `.env`.
 
-### 3. Build and Start Docker Environment
+## Running With Docker
+
+### 1. Start containers
 
 ```bash
 docker compose up -d --build
 ```
 
-> Subsequent starts (no Dockerfile changes): `docker compose up -d`
+Services defined in `docker-compose.yml`:
 
----
+| Service | Description | Host Port |
+| --- | --- | --- |
+| `app` | PHP-FPM application container | - |
+| `nginx` | HTTP entrypoint | `8080` |
+| `mariadb` | MariaDB database | `3307` |
+| `redis` | Redis cache / queue | `6380` |
+| `queue` | Horizon worker container | - |
 
-### 4. Install Dependencies and Run Migrations
+### 2. Install PHP dependencies
 
 ```bash
 docker compose exec app composer install
 ```
 
-This runs `composer install`, generates the application key, runs migrations, seeds the database, and builds frontend assets.
+### 3. Generate app key
 
----
-
-### 5. Access the Application
-
+```bash
+docker compose exec app php artisan key:generate
 ```
+
+### 4. Run migrations and seeders
+
+```bash
+docker compose exec app php artisan migrate --seed
+```
+
+### 5. Install frontend dependencies and build assets
+
+```bash
+docker compose exec app npm install
+docker compose exec app npm run build
+```
+
+### 6. Access the application
+
+```text
 http://localhost:8080
 ```
 
----
-
-# Local Development (Without Docker)
-
-If running outside Docker, use the following commands:
+### Useful Docker commands
 
 ```bash
-# First-time setup
-composer setup
-
-# Start dev server (serves + queue listener + log watcher + Vite)
-composer dev
-
-# Run all tests
-composer test
-
-# Run tests with filter
-php artisan test --compact --filter=TestName
-
-# Code formatting
-vendor/bin/pint --dirty
-
-# Run migrations
-php artisan migrate
-php artisan migrate:fresh --seed
-```
-
----
-
-# Docker Commands
-
-```bash
-# View running containers
 docker compose ps
-
-# Follow application logs
 docker compose logs -f app
-
-# Open shell inside app container
+docker compose logs -f queue
 docker compose exec app bash
-
-# Run Artisan commands
-docker compose exec app php artisan <command>
-
-# Stop all containers
+docker compose exec app php artisan route:list
 docker compose down
-
-# Stop and remove volumes (resets database)
 docker compose down -v
 ```
 
----
+### Docker permission issue
 
-# News Aggregation
+Because this project uses a Docker bind mount for the application directory, you may hit filesystem permission issues on `storage/` or `bootstrap/cache/`.
 
-### Trigger Manually
+Example error:
 
-Run article ingestion on demand (dispatches one job per active source to the queue):
+```text
+The stream or file "/home/fajarsiagian/projects/laravel-innoscripta-news-aggregator-api/storage/logs/laravel.log" could not be opened in append mode: Failed to open stream: Permission denied
+The exception occurred while attempting to log: The /home/fajarsiagian/projects/laravel-innoscripta-news-aggregator-api/bootstrap/cache directory must be present and writable.
+Context: {"exception":{}}
+```
+
+Temporary workaround:
+
+```bash
+sudo chown -R $USER:$USER .
+```
+
+This is related to the current Docker setup and will be improved later.
+
+## Running Locally Without Docker
+
+### First-time setup
+
+```bash
+composer setup
+php artisan migrate --seed
+```
+
+`composer setup` installs Composer dependencies, prepares `.env`, generates the app key, runs migrations, installs NPM packages, and builds assets.
+
+### Start the local development stack
+
+```bash
+composer dev
+```
+
+This starts:
+
+- Laravel development server
+- queue listener
+- log watcher with Pail
+- Vite dev server
+
+## Aggregation Workflow
+
+### Trigger aggregation manually
 
 ```bash
 php artisan news:aggregate
+```
 
-# Inside Docker
+Inside Docker:
+
+```bash
 docker compose exec app php artisan news:aggregate
 ```
 
-### Verify Articles Were Fetched
+The command:
+
+- loads all active sources
+- dispatches one `FetchArticlesJob` per source
+- skips inactive sources
+
+### Run the scheduler loop
+
+Local:
 
 ```bash
-php artisan tinker --execute "echo App\Models\Article::count();"
-php artisan tinker --execute "App\Models\Source::all(['name','last_fetched_at'])->each(fn(\$s) => dump(\$s->toArray()));"
+php artisan schedule:work
 ```
 
-### Automatic Schedule
+Docker:
 
-The scheduler runs `news:aggregate` every day at **00:00 server time**.
+```bash
+docker compose exec app php artisan schedule:work
+```
 
-Verify the schedule:
+### Verify scheduled commands
 
 ```bash
 php artisan schedule:list
 ```
 
-To run the scheduler process (required for automatic execution):
+## Horizon
+
+The queue worker container runs:
 
 ```bash
-# Local development
-php artisan schedule:work
-
-# Inside Docker
-docker compose exec app php artisan schedule:work
+php artisan horizon
 ```
 
-> **Timezone note:** The scheduler uses the timezone defined in `config/app.php` (`APP_TIMEZONE`). Defaults to `UTC`. Set `APP_TIMEZONE=Asia/Jakarta` in `.env` if your server runs on WIB.
+Dashboard URL in local development:
 
-### Monitor Queue Jobs
-
-Horizon dashboard shows pending, processing, completed, and failed jobs:
-
-```
+```text
 http://localhost:8080/horizon
 ```
 
-Retry failed jobs manually:
+Notes:
+
+- Horizon uses the `web` middleware group
+- In non-local environments, access is gated by `App\Providers\HorizonServiceProvider`
+- The allowlist in that provider is currently empty, so production access needs explicit configuration
+
+## Testing and Quality
+
+Run the test suite:
 
 ```bash
-php artisan queue:retry all
+php artisan test --compact
 ```
 
----
+Inside Docker:
 
-# Horizon Dashboard
-
-Horizon provides a dashboard for monitoring queue workers and jobs:
-
-```
-http://localhost:8080/horizon
+```bash
+docker compose exec app php artisan test --compact
 ```
 
----
+Run formatting:
 
-# Summary
+```bash
+vendor/bin/pint --dirty --format agent
+```
 
-This project demonstrates how to design and implement a news aggregation backend with:
+Inside Docker:
 
-* Clean layered architecture (Service → Repository → Controller)
-* Normalized data ingestion from heterogeneous external APIs
-* Extensible adapter pattern for adding new news sources
-* Deduplication at the database level (unique constraints on source + external ID and URL)
-* Flexible article search and filtering
-* Maintainable, testable code structure
+```bash
+docker compose exec app vendor/bin/pint --dirty --format agent
+```
+
+## Makefile Shortcuts
+
+The repository includes a `Makefile` with shortcuts for common Docker tasks:
+
+```bash
+make up
+make down
+make ps
+make logs
+make shell
+make migrate
+make fresh
+make test
+make pint
+```
+
+## Additional Documentation
+
+Architecture and planning notes are available in:
+
+- `docs/v1/`
+- `docs/v2/`
+- `docs/task/backend-case-study.md`
+- `docs/third-party-response/`
+
+## Summary
+
+This project is a Laravel-based news aggregation backend with:
+
+- adapter-driven ingestion from multiple providers
+- asynchronous fetching through queues
+- deduplicated article persistence
+- searchable and filterable public read APIs
+- Docker-based local development
+- Horizon-backed queue monitoring

@@ -1,0 +1,579 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "News Aggregator Backend API",
+        "description": "REST API for aggregating and querying normalized news articles from multiple external providers.",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "/",
+            "description": "Application base URL"
+        }
+    ],
+    "paths": {
+        "/api/v1/articles": {
+            "get": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "List articles",
+                "description": "Returns a paginated list of articles with optional search, filters, and sorting.",
+                "operationId": "listArticles",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "description": "Full-text search keyword",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "source",
+                        "in": "query",
+                        "description": "Filter by source slug",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "category",
+                        "in": "query",
+                        "description": "Filter by category slug",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "author",
+                        "in": "query",
+                        "description": "Filter by exact author name",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "description": "Published date from",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "description": "Published date to",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "sort_by",
+                        "in": "query",
+                        "description": "Sort column",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "published_at",
+                                "title",
+                                "created_at"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "sort_order",
+                        "in": "query",
+                        "description": "Sort direction",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Pagination page",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated article list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/ArticleResource"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/v1/articles/{article}": {
+            "get": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Get article detail",
+                "description": "Display the specified resource.",
+                "operationId": "showArticle",
+                "parameters": [
+                    {
+                        "name": "article",
+                        "in": "path",
+                        "description": "Article ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Article detail",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/ArticleResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Article not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/categories": {
+            "get": {
+                "tags": [
+                    "Categories"
+                ],
+                "summary": "List categories",
+                "description": "Return all categories.",
+                "operationId": "listCategories",
+                "responses": {
+                    "200": {
+                        "description": "Category list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/CategoryResource"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/categories/{category}": {
+            "get": {
+                "tags": [
+                    "Categories"
+                ],
+                "summary": "Get category detail",
+                "description": "Return a single category.",
+                "operationId": "showCategory",
+                "parameters": [
+                    {
+                        "name": "category",
+                        "in": "path",
+                        "description": "Category ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Category detail",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/CategoryResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Category not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/sources": {
+            "get": {
+                "tags": [
+                    "Sources"
+                ],
+                "summary": "List sources",
+                "description": "Return all news sources.",
+                "operationId": "listSources",
+                "responses": {
+                    "200": {
+                        "description": "Source list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/SourceResource"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/sources/{source}": {
+            "get": {
+                "tags": [
+                    "Sources"
+                ],
+                "summary": "Get source detail",
+                "description": "Return a single news source.",
+                "operationId": "showSource",
+                "parameters": [
+                    {
+                        "name": "source",
+                        "in": "path",
+                        "description": "Source ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Source detail",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/SourceResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Source not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/health": {
+            "get": {
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Health check",
+                "operationId": "healthCheck",
+                "responses": {
+                    "200": {
+                        "description": "Successful health response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HealthCheckResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ArticleResource": {
+                "required": [
+                    "id",
+                    "source_id",
+                    "external_id",
+                    "title",
+                    "url",
+                    "published_at",
+                    "fetched_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "source_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "external_id": {
+                        "type": "string",
+                        "example": "guardian-123"
+                    },
+                    "title": {
+                        "type": "string",
+                        "example": "Example article"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Short summary",
+                        "nullable": true
+                    },
+                    "content": {
+                        "type": "string",
+                        "example": "Normalized article content",
+                        "nullable": true
+                    },
+                    "author": {
+                        "type": "string",
+                        "example": "Reporter Name",
+                        "nullable": true
+                    },
+                    "url": {
+                        "type": "string",
+                        "format": "uri",
+                        "example": "https://example.com/article"
+                    },
+                    "image_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "example": "https://example.com/image.jpg",
+                        "nullable": true
+                    },
+                    "published_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "fetched_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "source": {
+                        "$ref": "#/components/schemas/SourceResource"
+                    },
+                    "categories": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CategoryResource"
+                        }
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "CategoryResource": {
+                "required": [
+                    "id",
+                    "name",
+                    "slug"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Technology"
+                    },
+                    "slug": {
+                        "type": "string",
+                        "example": "technology"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "ErrorResponse": {
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "No query results for model [App\\Models\\Article] 999"
+                    }
+                },
+                "type": "object"
+            },
+            "HealthCheckResponse": {
+                "required": [
+                    "status",
+                    "service",
+                    "version",
+                    "timestamp"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "example": "OK"
+                    },
+                    "service": {
+                        "type": "string",
+                        "example": "news-aggregator-backend-api"
+                    },
+                    "version": {
+                        "type": "string",
+                        "example": "1.0.0"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-03-17T00:00:00+00:00"
+                    }
+                },
+                "type": "object"
+            },
+            "SourceResource": {
+                "required": [
+                    "id",
+                    "name",
+                    "slug",
+                    "is_active"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "The Guardian"
+                    },
+                    "slug": {
+                        "type": "string",
+                        "example": "guardian"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "last_fetched_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Health",
+            "description": "Application health endpoints"
+        },
+        {
+            "name": "Articles",
+            "description": "Read-only article endpoints"
+        },
+        {
+            "name": "Sources",
+            "description": "Read-only source endpoints"
+        },
+        {
+            "name": "Categories",
+            "description": "Read-only category endpoints"
+        }
+    ]
+}
