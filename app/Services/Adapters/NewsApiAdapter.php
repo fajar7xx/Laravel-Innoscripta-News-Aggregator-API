@@ -35,7 +35,7 @@ class NewsApiAdapter implements NewsSourceInterface
 
         try {
             Log::info('NewsAPI: Fetching articles', [
-                'endpoint' => '/everything',
+                'endpoint' => $endpoint,
                 'fetched_at' => Carbon::now()->toIso8601String(),
             ]);
 
