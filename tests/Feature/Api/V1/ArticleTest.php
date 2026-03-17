@@ -134,7 +134,136 @@ test('returns all articles when q is only whitespace', function () {
 );
 
 test('returns 422 when q exceeds maximum length', function () {
-    $this->getJson('/api/v1/articles?q=' . str_repeat('a', 256))
+    $this->getJson('/api/v1/articles?q='.str_repeat('a', 256))
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['q']);
+});
+
+// --- Filtering & Sorting (#21) ---
+
+test('filters articles by source slug', function () {
+    $source = Source::factory()->create(['slug' => 'the-guardian']);
+    $otherSource = Source::factory()->create();
+    Article::factory()->count(2)->create(['source_id' => $source->id]);
+    Article::factory()->count(3)->create(['source_id' => $otherSource->id]);
+
+    $response = $this->getJson('/api/v1/articles?source=the-guardian')->assertSuccessful();
+
+    expect($response->json('meta.total'))->toBe(2);
+});
+
+test('filters articles by category slug', function () {
+    $category = Category::factory()->create(['slug' => 'technology']);
+    $articles = Article::factory()->count(2)->create();
+    $articles->each(fn ($a) => $a->categories()->attach($category));
+    Article::factory()->count(3)->create();
+
+    $response = $this->getJson('/api/v1/articles?category=technology')->assertSuccessful();
+
+    expect($response->json('meta.total'))->toBe(2);
+});
+
+test('filters articles by author', function () {
+    Article::factory()->count(2)->create(['author' => 'John Doe']);
+    Article::factory()->count(3)->create(['author' => 'Jane Smith']);
+
+    $response = $this->getJson('/api/v1/articles?author=John+Doe')->assertSuccessful();
+
+    expect($response->json('meta.total'))->toBe(2);
+});
+
+test('filters articles by from date', function () {
+    Article::factory()->count(2)->create(['published_at' => '2024-06-15']);
+    Article::factory()->count(2)->create(['published_at' => '2024-01-01']);
+
+    $response = $this->getJson('/api/v1/articles?from=2024-06-01')->assertSuccessful();
+
+    expect($response->json('meta.total'))->toBe(2);
+});
+
+test('filters articles by to date', function () {
+    Article::factory()->count(2)->create(['published_at' => '2024-01-01']);
+    Article::factory()->count(2)->create(['published_at' => '2024-06-15']);
+
+    $response = $this->getJson('/api/v1/articles?to=2024-03-01')->assertSuccessful();
+
+    expect($response->json('meta.total'))->toBe(2);
+});
+
+test('filters articles within a date range', function () {
+    Article::factory()->count(3)->create(['published_at' => '2024-03-15']);
+    Article::factory()->count(2)->create(['published_at' => '2024-01-01']);
+    Article::factory()->count(2)->create(['published_at' => '2024-12-01']);
+
+    $response = $this->getJson('/api/v1/articles?from=2024-02-01&to=2024-06-01')->assertSuccessful();
+
+    expect($response->json('meta.total'))->toBe(3);
+});
+
+test('combines filters with AND logic', function () {
+    $source = Source::factory()->create(['slug' => 'newsapi']);
+    $otherSource = Source::factory()->create();
+    $category = Category::factory()->create(['slug' => 'sports']);
+
+    $matching = Article::factory()->create(['source_id' => $source->id]);
+    $matching->categories()->attach($category);
+
+    Article::factory()->create(['source_id' => $source->id]);
+
+    $other = Article::factory()->create(['source_id' => $otherSource->id]);
+    $other->categories()->attach($category);
+
+    $response = $this->getJson('/api/v1/articles?source=newsapi&category=sports')->assertSuccessful();
+
+    expect($response->json('meta.total'))->toBe(1);
+});
+
+test('sorts articles by published_at descending by default', function () {
+    Article::factory()->create(['published_at' => '2024-01-01']);
+    Article::factory()->create(['published_at' => '2024-06-01']);
+    Article::factory()->create(['published_at' => '2024-12-01']);
+
+    $response = $this->getJson('/api/v1/articles')->assertSuccessful();
+
+    $dates = collect($response->json('data'))->pluck('published_at');
+
+    expect($dates[0])->toBeGreaterThan($dates[1])
+        ->and($dates[1])->toBeGreaterThan($dates[2]);
+});
+
+test('sorts articles ascending when sort_order=asc', function () {
+    Article::factory()->create(['published_at' => '2024-01-01']);
+    Article::factory()->create(['published_at' => '2024-06-01']);
+    Article::factory()->create(['published_at' => '2024-12-01']);
+
+    $response = $this->getJson('/api/v1/articles?sort_by=published_at&sort_order=asc')->assertSuccessful();
+
+    $dates = collect($response->json('data'))->pluck('published_at');
+
+    expect($dates[0])->toBeLessThan($dates[1])
+        ->and($dates[1])->toBeLessThan($dates[2]);
+});
+
+test('returns 422 when sort_by is an invalid column', function () {
+    $this->getJson('/api/v1/articles?sort_by=invalid_column')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sort_by']);
+});
+
+test('returns 422 when sort_order is invalid', function () {
+    $this->getJson('/api/v1/articles?sort_order=random')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sort_order']);
+});
+
+test('returns 422 when from is not a valid date', function () {
+    $this->getJson('/api/v1/articles?from=not-a-date')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['from']);
+});
+
+test('returns 422 when to is not a valid date', function () {
+    $this->getJson('/api/v1/articles?to=not-a-date')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['to']);
 });
