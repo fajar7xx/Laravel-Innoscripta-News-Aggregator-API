@@ -36,7 +36,7 @@ class NewsApiAdapter implements NewsSourceInterface
         try {
             Log::info('NewsAPI: Fetching articles', [
                 'endpoint' => '/everything',
-                'from_date' => Carbon::now()->toIso8601String(),
+                'fetched_at' => Carbon::now()->toIso8601String(),
             ]);
 
             $response = Http::baseUrl($baseUrl)
@@ -55,7 +55,7 @@ class NewsApiAdapter implements NewsSourceInterface
             $data = $response->json();
             $articles = $data['articles'] ?? [];
 
-            Log::info('NewsAPI: fetched article successfully', [
+            Log::info('NewsAPI: fetched articles successfully', [
                 'count' => count($articles),
                 'total_results' => $data['totalResults'] ?? 0,
             ]);
