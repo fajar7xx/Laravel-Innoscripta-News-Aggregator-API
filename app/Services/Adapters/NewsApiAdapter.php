@@ -12,77 +12,52 @@ use Illuminate\Support\Facades\Log;
 
 class NewsApiAdapter implements NewsSourceInterface
 {
+    private const PAGE_SIZE = 100;
+
+    private const MAX_PAGES = 10;
+
     public function __construct(private array $config = [])
     {
         $this->config = config('news.sources.newsapi');
     }
 
     /**
-     * Fetch raw articles from the NewsAPI /everything endpoint.
+     * Fetch all articles published today from the NewsAPI /everything endpoint.
+     *
+     * Paginates through all available pages until every article for the day
+     * is collected or the API limit is reached.
      *
      * @return array<int, array<string, mixed>>
      *
-     * @throws RequestException
      * @throws ConnectionException
      * @throws Exception
      */
     public function fetch(): array
     {
-        $baseUrl = $this->config['base_url'];
-        $apiKey = $this->config['api_key'];
-        $timeout = $this->config['timeout'];
-        $endpoint = $this->config['endpoints']['everything'];
+        $today = Carbon::today()->toDateString();
+        $allArticles = [];
+        $page = 1;
 
-        try {
-            Log::info('NewsAPI: Fetching articles', [
-                'endpoint' => $endpoint,
-                'fetched_at' => Carbon::now()->toIso8601String(),
-            ]);
+        do {
+            $result = $this->fetchPage($page, $today);
 
-            $response = Http::baseUrl($baseUrl)
-                ->withQueryParameters([
-                    'apiKey' => $apiKey,
-                    'q' => 'AI',
-                    'language' => 'en',
-                    'sortBy' => 'publishedAt',
-                    'pageSize' => 10,
-                    'page' => 1,
-                ])->timeout($timeout)
-                ->retry(3, 100)
-                ->throw()
-                ->get($endpoint);
+            if ($result === null) {
+                break;
+            }
 
-            $data = $response->json();
-            $articles = $data['articles'] ?? [];
+            $allArticles = array_merge($allArticles, $result['articles']);
+            $totalResults = $result['totalResults'];
+            $page++;
 
-            Log::info('NewsAPI: fetched articles successfully', [
-                'count' => count($articles),
-                'total_results' => $data['totalResults'] ?? 0,
-            ]);
+            $hasMorePages = count($allArticles) < $totalResults && ! empty($result['articles']);
+        } while ($hasMorePages && $page <= self::MAX_PAGES);
 
-            return $articles;
-        } catch (RequestException $re) {
-            Log::error('NewsAPI HTTP error', [
-                'status' => $re->response->status(),
-                'message' => $re->getMessage(),
-            ]);
+        Log::info('NewsAPI: finished fetching all pages', [
+            'total_fetched' => count($allArticles),
+            'pages_requested' => $page - 1,
+        ]);
 
-            return [];
-        } catch (ConnectionException $ce) {
-            Log::error('NewsAPI connection error', [
-                'message' => $ce->getMessage(),
-            ]);
-
-            throw $ce;
-        } catch (Exception $e) {
-            Log::error('NewsAPI adapter error', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            throw $e;
-        }
-
+        return $allArticles;
     }
 
     /**
@@ -130,5 +105,71 @@ class NewsApiAdapter implements NewsSourceInterface
             'published_at' => $publishedAt->toDateTimeString(),
             'categories' => $categories,
         ];
+    }
+
+    /**
+     * Fetch a single page of results from NewsAPI.
+     *
+     * Returns null on HTTP errors (rate limit, auth), throws on connection errors.
+     *
+     * @return array{articles: array<int, mixed>, totalResults: int}|null
+     *
+     * @throws ConnectionException
+     * @throws Exception
+     */
+    private function fetchPage(int $page, string $date): ?array
+    {
+        $baseUrl = $this->config['base_url'];
+        $apiKey = $this->config['api_key'];
+        $timeout = $this->config['timeout'];
+        $endpoint = $this->config['endpoints']['everything'];
+
+        try {
+            Log::info('NewsAPI: fetching page', [
+                'page' => $page,
+                'date' => $date,
+            ]);
+
+            $response = Http::baseUrl($baseUrl)
+                ->withQueryParameters([
+                    'apiKey' => $apiKey,
+                    'q' => 'AI',
+                    'language' => 'en',
+                    'from' => $date,
+                    'to' => $date,
+                    'sortBy' => 'publishedAt',
+                    'pageSize' => self::PAGE_SIZE,
+                    'page' => $page,
+                ])->timeout($timeout)
+                ->retry(3, 100)
+                ->throw()
+                ->get($endpoint);
+
+            $data = $response->json();
+
+            return [
+                'articles' => $data['articles'] ?? [],
+                'totalResults' => $data['totalResults'] ?? 0,
+            ];
+        } catch (RequestException $re) {
+            Log::error('NewsAPI HTTP error', [
+                'page' => $page,
+                'status' => $re->response->status(),
+                'message' => $re->getMessage(),
+            ]);
+
+            return null;
+        } catch (ConnectionException $ce) {
+            Log::error('NewsAPI connection error', ['message' => $ce->getMessage()]);
+
+            throw $ce;
+        } catch (Exception $e) {
+            Log::error('NewsAPI adapter error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            throw $e;
+        }
     }
 }

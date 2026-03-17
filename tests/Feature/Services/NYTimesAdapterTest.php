@@ -178,7 +178,7 @@ test('normalize reuses existing category without creating duplicate', function (
 // fetch()
 // ---------------------------------------------------------------------------
 
-test('fetch returns sliced articles on successful response', function () {
+test('fetch returns all articles on successful response', function () {
     $docs = array_map(fn ($i) => [
         '_id' => "nyt://article/id-{$i}",
         'headline' => ['main' => "Article {$i}"],
@@ -196,7 +196,7 @@ test('fetch returns sliced articles on successful response', function () {
     $adapter = new NYTimesAdapter;
     $articles = $adapter->fetch();
 
-    expect($articles)->toHaveCount(10)
+    expect($articles)->toHaveCount(20)
         ->and($articles[0]['headline']['main'])->toBe('Article 1');
 });
 

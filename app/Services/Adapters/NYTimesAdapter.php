@@ -71,7 +71,7 @@ class NYTimesAdapter implements NewsSourceInterface
                 'total_results' => $data['response']['meta']['hits'] ?? 0,
             ]);
 
-            return array_slice($articles, 0, 10);
+            return $articles;
         } catch (RequestException $re) {
             Log::error('NYTimes HTTP error', [
                 'status' => $re->response->status(),
