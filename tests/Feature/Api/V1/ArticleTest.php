@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\Source;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -62,6 +63,7 @@ test('returns 404 for a soft-deleted article', function () {
 });
 
 test('returns categories with an article on the index', function () {
+    Category::factory()->count(2)->create();
     Article::factory()->withCategories(2)->create();
 
     $response = $this->getJson('/api/v1/articles')->assertSuccessful();
@@ -70,6 +72,7 @@ test('returns categories with an article on the index', function () {
 });
 
 test('returns categories with an article on show', function () {
+    Category::factory()->count(3)->create();
     $article = Article::factory()->withCategories(3)->create();
 
     $response = $this->getJson("/api/v1/articles/{$article->id}")->assertSuccessful();
@@ -86,8 +89,8 @@ test('returns an empty categories array for an article with no categories', func
 });
 
 test('returns correct category fields with an article', function () {
+    $category = Category::factory()->create();
     $article = Article::factory()->withCategories(1)->create();
-    $category = $article->categories->first();
 
     $response = $this->getJson("/api/v1/articles/{$article->id}")->assertSuccessful();
 
