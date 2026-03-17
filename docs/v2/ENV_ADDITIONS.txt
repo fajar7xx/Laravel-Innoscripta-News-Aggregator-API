@@ -1,0 +1,42 @@
+# ============================================================================
+# NEWS API PROVIDERS
+# ============================================================================
+# Get API keys from:
+# - NewsAPI: https://newsapi.org/register
+# - Guardian: https://open-platform.theguardian.com/access/
+# - NYTimes: https://developer.nytimes.com/get-started
+
+NEWSAPI_KEY=
+NEWSAPI_BASE_URL=https://newsapi.org/v2
+
+GUARDIAN_API_KEY=
+GUARDIAN_BASE_URL=https://content.guardianapis.com
+
+NYTIMES_API_KEY=
+NYTIMES_BASE_URL=https://api.nytimes.com/svc/search/v2
+
+# ============================================================================
+# NEWS AGGREGATION SETTINGS
+# ============================================================================
+
+# How often to fetch articles (hourly, daily)
+NEWS_AGGREGATION_FREQUENCY=hourly
+
+# Number of articles to fetch per source per run
+NEWS_ARTICLES_PER_FETCH=100
+
+# Enable/disable sources individually
+NEWS_SOURCE_NEWSAPI_ENABLED=true
+NEWS_SOURCE_GUARDIAN_ENABLED=true
+NEWS_SOURCE_NYTIMES_ENABLED=true
+
+# ============================================================================
+# API SETTINGS
+# ============================================================================
+
+# Pagination defaults
+API_DEFAULT_PER_PAGE=20
+API_MAX_PER_PAGE=100
+
+# Cache TTL in seconds (5 minutes)
+API_CACHE_TTL=300
