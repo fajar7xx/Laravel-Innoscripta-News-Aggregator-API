@@ -7,15 +7,20 @@ use App\Http\Requests\StoreArticleRequest;
 use App\Http\Requests\UpdateArticleRequest;
 use App\Http\Resources\ArticleResource;
 use App\Models\Article;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class ArticleController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Return a paginated list of articles with their source and categories.
+     *
+     * @return AnonymousResourceCollection<LengthAwarePaginator<ArticleResource>>
      */
-    public function index()
+    public function index(): AnonymousResourceCollection
     {
-        $articles = Article::with(['source'])->paginate();
+        $articles = Article::with(['source', 'categories'])->paginate();
 
         return ArticleResource::collection($articles);
     }
@@ -37,11 +42,11 @@ class ArticleController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Return a single article with its source and categories.
      */
-    public function show(Article $article)
+    public function show(Article $article): JsonResource
     {
-        $article->load(['source']);
+        $article->load(['source', 'categories']);
 
         return new ArticleResource($article);
     }

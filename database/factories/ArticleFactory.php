@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\Source;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -17,7 +18,7 @@ class ArticleFactory extends Factory
     public function definition(): array
     {
         return [
-            'source_id' => Source::factory(),
+            'source_id' => Source::inRandomOrder()->value('id') ?? Source::factory(),
             'external_id' => fake()->unique()->uuid(),
             'title' => fake()->sentence(),
             'description' => fake()->paragraph(),
@@ -28,5 +29,25 @@ class ArticleFactory extends Factory
             'published_at' => fake()->dateTimeBetween('-1 month', 'now'),
             'fetched_at' => now(),
         ];
+    }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Article $article) {
+            $categoryIds = Category::inRandomOrder()->limit(2)->pluck('id');
+
+            if ($categoryIds->isNotEmpty()) {
+                $article->categories()->attach($categoryIds);
+            }
+        });
+    }
+
+    public function withCategories(int $count = 2): static
+    {
+        return $this->afterCreating(function (Article $article) use ($count) {
+            $article->categories()->sync(
+                Category::factory()->count($count)->create()->pluck('id')
+            );
+        });
     }
 }

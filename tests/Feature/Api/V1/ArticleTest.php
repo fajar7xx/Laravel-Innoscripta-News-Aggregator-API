@@ -60,3 +60,37 @@ test('returns 404 for a soft-deleted article', function () {
 
     $this->getJson("/api/v1/articles/{$article->id}")->assertNotFound();
 });
+
+test('returns categories with an article on the index', function () {
+    Article::factory()->withCategories(2)->create();
+
+    $response = $this->getJson('/api/v1/articles')->assertSuccessful();
+
+    expect($response->json('data.0.categories'))->toHaveCount(2);
+});
+
+test('returns categories with an article on show', function () {
+    $article = Article::factory()->withCategories(3)->create();
+
+    $response = $this->getJson("/api/v1/articles/{$article->id}")->assertSuccessful();
+
+    expect($response->json('data.categories'))->toHaveCount(3);
+});
+
+test('returns an empty categories array for an article with no categories', function () {
+    $article = Article::factory()->create();
+
+    $response = $this->getJson("/api/v1/articles/{$article->id}")->assertSuccessful();
+
+    expect($response->json('data.categories'))->toBeEmpty();
+});
+
+test('returns correct category fields with an article', function () {
+    $article = Article::factory()->withCategories(1)->create();
+    $category = $article->categories->first();
+
+    $response = $this->getJson("/api/v1/articles/{$article->id}")->assertSuccessful();
+
+    expect($response->json('data.categories.0'))
+        ->toMatchArray(['id' => $category->id, 'name' => $category->name, 'slug' => $category->slug]);
+});
