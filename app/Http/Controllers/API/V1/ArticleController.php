@@ -20,7 +20,29 @@ class ArticleController extends Controller
             $query->whereFullText(['title', 'description', 'content'], $q);
         }
 
-        $query->orderBy('created_at', 'DESC');
+        if ($source = $request->string('source')->trim()->value()) {
+            $query->whereHas('source', fn ($q) => $q->where('slug', $source));
+        }
+
+        if ($category = $request->string('category')->trim()->value()) {
+            $query->whereHas('categories', fn ($q) => $q->where('slug', $category));
+        }
+
+        if ($author = $request->string('author')->trim()->value()) {
+            $query->where('author', $author);
+        }
+
+        if ($from = $request->input('from')) {
+            $query->whereDate('published_at', '>=', $from);
+        }
+
+        if ($to = $request->input('to')) {
+            $query->whereDate('published_at', '<=', $to);
+        }
+
+        $sortBy = $request->input('sort_by', 'published_at');
+        $sortOrder = $request->input('sort_order', 'desc');
+        $query->orderBy($sortBy, $sortOrder);
 
         return ArticleResource::collection($query->paginate());
     }
