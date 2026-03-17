@@ -14,6 +14,14 @@ class SourceResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return parent::toArray($request);
+        return [
+            'id' => $this->id,
+            'slug' => $this->slug,
+            'is_active' => $this->is_active,
+            'last_fetched_at' => $this->last_fetched_at,
+
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+        ];
     }
 }

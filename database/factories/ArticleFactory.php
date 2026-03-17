@@ -31,23 +31,11 @@ class ArticleFactory extends Factory
         ];
     }
 
-    public function configure(): static
-    {
-        return $this->afterCreating(function (Article $article) {
-            $categoryIds = Category::inRandomOrder()->limit(2)->pluck('id');
-
-            if ($categoryIds->isNotEmpty()) {
-                $article->categories()->attach($categoryIds);
-            }
-        });
-    }
-
     public function withCategories(int $count = 2): static
     {
         return $this->afterCreating(function (Article $article) use ($count) {
-            $article->categories()->sync(
-                Category::factory()->count($count)->create()->pluck('id')
-            );
+            $categoryIds = Category::inRandomOrder()->limit($count)->pluck('id');
+            $article->categories()->sync($categoryIds);
         });
     }
 }

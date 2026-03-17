@@ -8,17 +8,15 @@ use App\Http\Requests\UpdateArticleRequest;
 use App\Http\Resources\ArticleResource;
 use App\Models\Article;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Pagination\LengthAwarePaginator;
 
 class ArticleController extends Controller
 {
     /**
-     * Return a paginated list of articles with their source and categories.
+     * Summary of index
      *
-     * @return AnonymousResourceCollection<LengthAwarePaginator<ArticleResource>>
+     * @return AnonymousResourceCollection
      */
-    public function index(): AnonymousResourceCollection
+    public function index()
     {
         $articles = Article::with(['source', 'categories'])->paginate();
 
@@ -42,9 +40,9 @@ class ArticleController extends Controller
     }
 
     /**
-     * Return a single article with its source and categories.
+     * Display the specified resource.
      */
-    public function show(Article $article): JsonResource
+    public function show(Article $article)
     {
         $article->load(['source', 'categories']);
 
