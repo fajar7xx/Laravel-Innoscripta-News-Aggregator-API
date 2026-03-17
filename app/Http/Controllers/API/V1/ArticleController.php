@@ -5,16 +5,22 @@ namespace App\Http\Controllers\API\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreArticleRequest;
 use App\Http\Requests\UpdateArticleRequest;
+use App\Http\Resources\ArticleResource;
 use App\Models\Article;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ArticleController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Summary of index
+     *
+     * @return AnonymousResourceCollection
      */
     public function index()
     {
-        //
+        $articles = Article::with(['source', 'categories'])->paginate();
+
+        return ArticleResource::collection($articles);
     }
 
     /**
@@ -38,7 +44,9 @@ class ArticleController extends Controller
      */
     public function show(Article $article)
     {
-        //
+        $article->load(['source', 'categories']);
+
+        return new ArticleResource($article);
     }
 
     /**

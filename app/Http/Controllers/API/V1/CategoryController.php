@@ -5,16 +5,22 @@ namespace App\Http\Controllers\API\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCategoryRequest;
 use App\Http\Requests\UpdateCategoryRequest;
+use App\Http\Resources\CategoryResource;
 use App\Models\Category;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 class CategoryController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Return all categories.
+     *
+     * @return AnonymousResourceCollection<Collection<CategoryResource>>
      */
-    public function index()
+    public function index(): AnonymousResourceCollection
     {
-        //
+        return CategoryResource::collection(Category::get());
     }
 
     /**
@@ -34,11 +40,11 @@ class CategoryController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Return a single category.
      */
-    public function show(Category $category)
+    public function show(Category $category): JsonResource
     {
-        //
+        return new CategoryResource($category);
     }
 
     /**

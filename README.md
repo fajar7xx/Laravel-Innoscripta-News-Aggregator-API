@@ -60,7 +60,7 @@ Key components:
 
 Each news provider has a dedicated adapter responsible for fetching and mapping API responses.
 
-Adapters implemented:
+Adapters planned:
 
 * NewsApiAdapter
 * GuardianAdapter
@@ -74,10 +74,10 @@ The aggregation service orchestrates the process of collecting and storing artic
 
 Responsibilities:
 
-* call external news APIs through adapters
-* normalize article data
-* deduplicate articles
-* persist articles to the database
+* Call external news APIs through adapters
+* Normalize article data
+* Deduplicate articles
+* Persist articles to the database
 
 ---
 
@@ -87,10 +87,12 @@ The system uses Laravel's scheduler to periodically ingest articles.
 
 Workflow:
 
+```
 Scheduler
 → FetchArticlesJob
 → Aggregation Service
 → Database update
+```
 
 ---
 
@@ -121,7 +123,9 @@ Response:
 
 ---
 
-### Get Articles
+### Articles
+
+#### List Articles
 
 Retrieve paginated articles.
 
@@ -131,20 +135,18 @@ GET /api/v1/articles
 
 Query parameters:
 
-| Parameter | Description        |
-| --------- | ------------------ |
-| q         | search keyword     |
-| source    | filter by source   |
-| category  | filter by category |
-| author    | filter by author   |
-| from      | start date         |
-| to        | end date           |
-| page      | page number        |
-| per_page  | number of results  |
+| Parameter | Description               |
+| --------- | ------------------------- |
+| q         | Search keyword            |
+| source    | Filter by source slug     |
+| category  | Filter by category slug   |
+| author    | Filter by author name     |
+| from      | Start date (YYYY-MM-DD)   |
+| to        | End date (YYYY-MM-DD)     |
+| page      | Page number               |
+| per_page  | Results per page          |
 
----
-
-### Get Article Detail
+#### Get Article Detail
 
 ```
 GET /api/v1/articles/{id}
@@ -152,18 +154,34 @@ GET /api/v1/articles/{id}
 
 ---
 
-### Get Sources
+### Sources
+
+#### List Sources
 
 ```
 GET /api/v1/sources
 ```
 
+#### Get Source Detail
+
+```
+GET /api/v1/sources/{id}
+```
+
 ---
 
-### Get Categories
+### Categories
+
+#### List Categories
 
 ```
 GET /api/v1/categories
+```
+
+#### Get Category Detail
+
+```
+GET /api/v1/categories/{id}
 ```
 
 ---
@@ -198,7 +216,7 @@ Authentication is handled via **Laravel Sanctum** token-based auth. No sessions 
 | -------- | ---------------------------------- | ----------- |
 | app      | PHP 8.4-FPM (Laravel application)  | —           |
 | nginx    | Web server (reverse proxy to app)  | 8080        |
-| mariadb  | Database                           | 3307        |
+| mariadb  | MariaDB 11 database                | 3307        |
 | redis    | Cache & queue driver               | 6380        |
 | queue    | Horizon worker                     | —           |
 
@@ -210,7 +228,7 @@ Authentication is handled via **Laravel Sanctum** token-based auth. No sessions 
 
 ```bash
 git clone <repository-url>
-cd news-aggregator-backend
+cd laravel-innoscripta-news-aggregator-api
 ```
 
 ---
@@ -224,7 +242,7 @@ cp .env.example .env
 Update the following values in `.env`:
 
 ```env
-DB_DATABASE=innoscripta_news_aggregator
+DB_DATABASE=laravel_innoscripta_news_aggregator_api
 DB_USERNAME=your_db_user
 DB_PASSWORD=your_db_password
 
@@ -251,7 +269,7 @@ docker compose up -d --build
 docker compose exec app composer install
 ```
 
-This runs `composer install`, generates the application key, runs migrations, installs npm dependencies, and builds frontend assets.
+This runs `composer install`, generates the application key, runs migrations, seeds the database, and builds frontend assets.
 
 ---
 
@@ -338,8 +356,9 @@ http://localhost:8080/horizon
 
 This project demonstrates how to design and implement a news aggregation backend with:
 
-* clean architecture
-* normalized data ingestion
-* extensible API integrations
-* flexible search and filtering
-* maintainable code structure
+* Clean layered architecture (Service → Repository → Controller)
+* Normalized data ingestion from heterogeneous external APIs
+* Extensible adapter pattern for adding new news sources
+* Deduplication at the database level (unique constraints on source + external ID and URL)
+* Flexible article search and filtering
+* Maintainable, testable code structure

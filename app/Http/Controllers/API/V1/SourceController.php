@@ -5,16 +5,22 @@ namespace App\Http\Controllers\API\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSourceRequest;
 use App\Http\Requests\UpdateSourceRequest;
+use App\Http\Resources\SourceResource;
 use App\Models\Source;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 class SourceController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Return all news sources.
+     *
+     * @return AnonymousResourceCollection<Collection<SourceResource>>
      */
-    public function index()
+    public function index(): AnonymousResourceCollection
     {
-        //
+        return SourceResource::collection(Source::get());
     }
 
     /**
@@ -34,11 +40,11 @@ class SourceController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Return a single news source.
      */
-    public function show(Source $source)
+    public function show(Source $source): JsonResource
     {
-        //
+        return new SourceResource($source);
     }
 
     /**
