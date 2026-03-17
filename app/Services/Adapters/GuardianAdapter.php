@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\Log;
 
 class GuardianAdapter implements NewsSourceInterface
 {
+    private const PAGE_SIZE = 50;
+
+    private const MAX_PAGES = 20;
+
     /**
      * Create a new class instance.
      */
@@ -22,75 +26,40 @@ class GuardianAdapter implements NewsSourceInterface
     }
 
     /**
-     * Fetch raw articles from The Guardian /search endpoint.
+     * Fetch all articles published today from The Guardian /search endpoint.
+     *
+     * Paginates through all available pages until every article for the day
+     * is collected or the page limit is reached.
      *
      * @return array<int, array<string, mixed>>
      *
-     * @throws RequestException
      * @throws ConnectionException
      * @throws Exception
      */
     public function fetch(): array
     {
-        $baseUrl = $this->config['base_url'];
-        $apiKey = $this->config['api_key'];
-        $timeout = $this->config['timeout'];
-        $endpoint = $this->config['endpoints']['search'];
+        $today = Carbon::today()->toDateString();
+        $allArticles = [];
+        $page = 1;
 
-        // $randSection = Category::query()->select('slug')->inRandomOrder()->value('slug');
+        do {
+            $result = $this->fetchPage($page, $today);
 
-        try {
-            Log::info('The Guardian: Fetching articles', [
-                'endpoint' => $endpoint,
-                'fetched_at' => Carbon::now()->toIso8601String(),
-            ]);
+            if ($result === null) {
+                break;
+            }
 
-            $response = Http::baseUrl($baseUrl)
-                ->withQueryParameters([
-                    'api-key' => $apiKey,
-                    'q' => 'AI',
-                    'lang' => 'en',
-                    'page' => 1,
-                    'page-size' => 10,
-                    'order-by' => 'newest',
-                    'format' => 'json',
-                    'show-fields' => 'all',
-                    // 'section' => $randSection,
-                ])->timeout($timeout)
-                ->retry(3, 100)
-                ->throw()
-                ->get($endpoint);
+            $allArticles = array_merge($allArticles, $result['articles']);
+            $totalPages = $result['pages'];
+            $page++;
+        } while ($page <= $totalPages && $page <= self::MAX_PAGES);
 
-            $data = $response->json();
-            $articles = $data['response']['results'] ?? [];
+        Log::info('Guardian: finished fetching all pages', [
+            'total_fetched' => count($allArticles),
+            'pages_requested' => $page - 1,
+        ]);
 
-            Log::info('The Guardian: fetched articles successfully', [
-                'count' => count($articles),
-                'total_results' => $data['response']['total'] ?? 0,
-            ]);
-
-            return $articles;
-        } catch (RequestException $re) {
-            Log::error('The Guardian HTTP error', [
-                'status' => $re->response->status(),
-                'message' => $re->getMessage(),
-            ]);
-
-            return [];
-        } catch (ConnectionException $ce) {
-            Log::error('The Guardian connection error', [
-                'message' => $ce->getMessage(),
-            ]);
-
-            throw $ce;
-        } catch (Exception $e) {
-            Log::error('The Guardian adapter error', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            throw $e;
-        }
+        return $allArticles;
     }
 
     /**
@@ -151,5 +120,73 @@ class GuardianAdapter implements NewsSourceInterface
             'published_at' => Carbon::parse($data['webPublicationDate'])->toDateTimeString(),
             'categories' => [$category->slug],
         ];
+    }
+
+    /**
+     * Fetch a single page of results from The Guardian API.
+     *
+     * Returns null on HTTP errors, throws on connection errors.
+     *
+     * @return array{articles: array<int, mixed>, pages: int}|null
+     *
+     * @throws ConnectionException
+     * @throws Exception
+     */
+    private function fetchPage(int $page, string $date): ?array
+    {
+        $baseUrl = $this->config['base_url'];
+        $apiKey = $this->config['api_key'];
+        $timeout = $this->config['timeout'];
+        $endpoint = $this->config['endpoints']['search'];
+
+        try {
+            Log::info('The Guardian: fetching page', [
+                'page' => $page,
+                'date' => $date,
+            ]);
+
+            $response = Http::baseUrl($baseUrl)
+                ->withQueryParameters([
+                    'api-key' => $apiKey,
+                    'from-date' => $date,
+                    'to-date' => $date,
+                    'lang' => 'en',
+                    'page' => $page,
+                    'page-size' => self::PAGE_SIZE,
+                    'order-by' => 'newest',
+                    'format' => 'json',
+                    'show-fields' => 'all',
+                ])->timeout($timeout)
+                ->retry(3, 100)
+                ->throw()
+                ->get($endpoint);
+
+            $data = $response->json();
+            $responseBody = $data['response'] ?? [];
+
+            return [
+                'articles' => $responseBody['results'] ?? [],
+                'pages' => $responseBody['pages'] ?? 1,
+            ];
+        } catch (RequestException $re) {
+            Log::error('The Guardian HTTP error', [
+                'page' => $page,
+                'status' => $re->response->status(),
+                'message' => $re->getMessage(),
+            ]);
+
+            return null;
+        } catch (ConnectionException $ce) {
+            Log::error('The Guardian connection error', ['message' => $ce->getMessage()]);
+
+            throw $ce;
+        } catch (Exception $e) {
+            Log::error('The Guardian adapter error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            throw $e;
+        }
     }
 }

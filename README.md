@@ -60,11 +60,11 @@ Key components:
 
 Each news provider has a dedicated adapter responsible for fetching and mapping API responses.
 
-Adapters planned:
+Adapters implemented:
 
-* NewsApiAdapter
-* GuardianAdapter
-* NYTimesAdapter
+* `NewsApiAdapter` — fetches from NewsAPI `/everything` endpoint
+* `GuardianAdapter` — fetches from The Guardian `/search` endpoint
+* `NYTimesAdapter` — fetches from NYTimes Archive API
 
 ---
 
@@ -74,23 +74,36 @@ The aggregation service orchestrates the process of collecting and storing artic
 
 Responsibilities:
 
-* Call external news APIs through adapters
-* Normalize article data
-* Deduplicate articles
-* Persist articles to the database
+* Receive normalized article data from adapters
+* Deduplicate articles via `updateOrCreate` on `(source_id, external_id)`
+* Persist articles and sync categories to the database
+
+---
+
+**Background Jobs**
+
+Each source runs as an independent `FetchArticlesJob` on the queue. Jobs are isolated per source so a failing source does not block others.
+
+Job configuration:
+
+* Retries: 3 attempts
+* Backoff: 30s → 2min → 10min
+* Timeout: 120 seconds
+* Failed jobs logged to `failed_jobs` table
 
 ---
 
 **Scheduler**
 
-The system uses Laravel's scheduler to periodically ingest articles.
+The system uses Laravel's scheduler to automatically ingest articles daily at midnight (server time).
 
 Workflow:
 
 ```
-Scheduler
-→ FetchArticlesJob
-→ Aggregation Service
+Scheduler (daily 00:00)
+→ AggregateNewsCommand
+→ FetchArticlesJob (one per active source, queued)
+→ NewsAggregationService::saveArticle()
 → Database update
 ```
 
@@ -332,12 +345,60 @@ docker compose down -v
 
 ---
 
-# Running the Scheduler
+# News Aggregation
 
-The `queue` container runs **Horizon**, which processes queued jobs from Redis. The Laravel scheduler (for periodic tasks like article ingestion) is a separate process and must be started manually:
+### Trigger Manually
+
+Run article ingestion on demand (dispatches one job per active source to the queue):
 
 ```bash
+php artisan news:aggregate
+
+# Inside Docker
+docker compose exec app php artisan news:aggregate
+```
+
+### Verify Articles Were Fetched
+
+```bash
+php artisan tinker --execute "echo App\Models\Article::count();"
+php artisan tinker --execute "App\Models\Source::all(['name','last_fetched_at'])->each(fn(\$s) => dump(\$s->toArray()));"
+```
+
+### Automatic Schedule
+
+The scheduler runs `news:aggregate` every day at **00:00 server time**.
+
+Verify the schedule:
+
+```bash
+php artisan schedule:list
+```
+
+To run the scheduler process (required for automatic execution):
+
+```bash
+# Local development
+php artisan schedule:work
+
+# Inside Docker
 docker compose exec app php artisan schedule:work
+```
+
+> **Timezone note:** The scheduler uses the timezone defined in `config/app.php` (`APP_TIMEZONE`). Defaults to `UTC`. Set `APP_TIMEZONE=Asia/Jakarta` in `.env` if your server runs on WIB.
+
+### Monitor Queue Jobs
+
+Horizon dashboard shows pending, processing, completed, and failed jobs:
+
+```
+http://localhost:8080/horizon
+```
+
+Retry failed jobs manually:
+
+```bash
+php artisan queue:retry all
 ```
 
 ---

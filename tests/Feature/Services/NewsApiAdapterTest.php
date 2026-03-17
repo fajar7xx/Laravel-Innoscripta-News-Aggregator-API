@@ -106,7 +106,7 @@ test('fetch returns empty array when articles key is absent', function () {
 test('fetch returns empty array and logs error on http error', function () {
     Http::fake(['*' => Http::response(['message' => 'Too Many Requests'], 429)]);
 
-    Log::shouldReceive('info')->once();
+    Log::shouldReceive('info')->times(2);
     Log::shouldReceive('error')->once()->with('NewsAPI HTTP error', \Mockery::type('array'));
 
     $adapter = new NewsApiAdapter;

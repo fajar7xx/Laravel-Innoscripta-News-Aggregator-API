@@ -12,6 +12,8 @@ services:
     environment:
       DB_HOST: mariadb
       REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
     networks:
       - news_aggregator_network
     depends_on:
@@ -85,6 +87,8 @@ services:
     environment:
       DB_HOST: mariadb
       REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
     networks:
       - news_aggregator_network
     depends_on:

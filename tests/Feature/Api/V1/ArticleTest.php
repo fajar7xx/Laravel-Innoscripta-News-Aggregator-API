@@ -97,3 +97,44 @@ test('returns correct category fields with an article', function () {
     expect($response->json('data.categories.0'))
         ->toMatchArray(['id' => $category->id, 'name' => $category->name, 'slug' => $category->slug]);
 });
+
+// --- Full-Text Search (#20) ---
+
+test('accepts a search query and returns a successful response', function () {
+    Article::factory()->count(3)->create();
+
+    $this->getJson('/api/v1/articles?q=technology')
+        ->assertSuccessful()
+        ->assertJsonStructure(['data', 'meta']);
+})->skip(
+    fn () => config('database.default') === 'sqlite',
+    'whereFullText is not supported in SQLite; runs on MariaDB in production.'
+);
+
+test('returns all articles when q param is empty', function () {
+    Article::factory()->count(5)->create();
+
+    $withoutQ = $this->getJson('/api/v1/articles')->assertSuccessful();
+    $withEmptyQ = $this->getJson('/api/v1/articles?q=')->assertSuccessful();
+
+    expect($withoutQ->json('meta.total'))->toBe($withEmptyQ->json('meta.total'));
+});
+
+test('returns all articles when q is only whitespace', function () {
+    Article::factory()->count(3)->create();
+
+    $withoutQ = $this->getJson('/api/v1/articles')->assertSuccessful();
+    // URL-encode spaces (%20) to form a valid URI
+    $withWhitespace = $this->getJson('/api/v1/articles?q=%20%20%20')->assertSuccessful();
+
+    expect($withoutQ->json('meta.total'))->toBe($withWhitespace->json('meta.total'));
+})->skip(
+    fn () => config('database.default') === 'sqlite',
+    'whereFullText is not supported in SQLite; runs on MariaDB in production.'
+);
+
+test('returns 422 when q exceeds maximum length', function () {
+    $this->getJson('/api/v1/articles?q=' . str_repeat('a', 256))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['q']);
+});
