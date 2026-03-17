@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreArticleRequest;
 use App\Http\Requests\UpdateArticleRequest;
+use App\Http\Resources\ArticleResource;
 use App\Models\Article;
 
 class ArticleController extends Controller
@@ -14,7 +15,9 @@ class ArticleController extends Controller
      */
     public function index()
     {
-        //
+        $articles = Article::with(['source'])->paginate();
+
+        return ArticleResource::collection($articles);
     }
 
     /**
@@ -38,7 +41,9 @@ class ArticleController extends Controller
      */
     public function show(Article $article)
     {
-        //
+        $article->load(['source']);
+
+        return new ArticleResource($article);
     }
 
     /**
