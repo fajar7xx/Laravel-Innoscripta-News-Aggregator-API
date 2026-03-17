@@ -8,23 +8,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (! in_array(DB::getDriverName(), ['mysql', 'mariadb'])) {
-            return;
-        }
+        // if (! in_array(DB::getDriverName(), ['mysql', 'mariadb'])) {
+        //     return;
+        // }
 
         // Add the FULLTEXT index that was skipped when the driver was reported
         // as 'mysql' only — Laravel 11+ reports MariaDB as 'mariadb' separately.
-        DB::statement('CREATE FULLTEXT INDEX ft_search ON articles(title, description, content)');
+        // DB::statement('CREATE FULLTEXT INDEX ft_search ON articles(title, description, content)');
     }
 
     public function down(): void
     {
-        if (! in_array(DB::getDriverName(), ['mysql', 'mariadb'])) {
-            return;
-        }
+        // if (! in_array(DB::getDriverName(), ['mysql', 'mariadb'])) {
+        //     return;
+        // }
 
-        if (Schema::hasTable('articles')) {
-            DB::statement('DROP INDEX ft_search ON articles');
-        }
+        // if (Schema::hasTable('articles')) {
+        //     DB::statement('DROP INDEX ft_search ON articles');
+        // }
     }
 };
