@@ -25,7 +25,7 @@ class Source extends Model
     {
         return [
             'is_active' => 'boolean',
-            'last_fetched_at' => 'timestamp',
+            'last_fetched_at' => 'datetime',
         ];
     }
 

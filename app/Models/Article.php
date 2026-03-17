@@ -38,10 +38,6 @@ class Article extends Model
         ];
     }
 
-    protected $attributes = [
-        'fetched_at' => null,
-    ];
-
     public function source(): BelongsTo
     {
         return $this->belongsTo(Source::class, 'source_id');
